@@ -1,0 +1,7 @@
+Usage: {[cmd]s} <COMMAND>
+
+Commands:
+  cd _      Resolve directory to change to
+  init      Print POSIX shell configuration
+  query _   Search for a directory
+  visit _   Increment a directory
