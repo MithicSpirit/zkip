@@ -22,14 +22,7 @@ pub fn main() !void {
     else if (std.mem.eql(u8, static.argv[1], "&"))
         if (static.argv.len < 3)
             help()
-            // TODO: investigate cross-platform solutions
-        else if (try std.posix.fork() > 0)
-            std.posix.exit(0)
-        else child: {
-            // TODO: better error handling if stdout is closed
-            std.io.getStdOut().close();
-            break :child cmd(static.argv[2..]);
-        }
+        else forkcmd(static.argv[2..])
     else
         cmd(static.argv[1..]);
 }
@@ -121,6 +114,16 @@ fn cmd(args: [][:0]u8) !void {
         // fallback
     } else {
         try help();
+    }
+}
+
+fn forkcmd(args: [][:0]u8) !void {
+    // TODO: investigate cross-platform solutions
+    if (try std.posix.fork() > 0) {
+            std.posix.exit(0);
+    } else {
+            std.io.getStdOut().close();
+            return cmd(args);
     }
 }
 
