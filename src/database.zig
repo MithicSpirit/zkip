@@ -169,7 +169,7 @@ pub const DbW = struct {
         errdefer std.fs.deleteFileAbsolute(pathW) catch {};
         errdefer fileW.close();
 
-        var db = try Db.init(alloc, pathR);
+        const db = try Db.init(alloc, pathR);
         return .{
             .alloc = db.alloc,
             .heap = db.heap,
