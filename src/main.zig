@@ -17,24 +17,40 @@ pub fn main() !void {
     defer std.process.argsFree(static.alloc, static.argv);
     defer static.exeFree();
 
-    if (static.argv.len < 2) {
-        try help();
+    return if (static.argv.len < 2)
+        help()
+    else if (std.mem.eql(u8, static.argv[1], "&"))
+        if (static.argv.len < 3)
+            help()
+            // TODO: investigate cross-platform solutions
+        else if (try std.posix.fork() > 0)
+            std.posix.exit(0)
+        else child: {
+            // TODO: better error handling if stdout is closed
+            std.io.getStdOut().close();
+            break :child cmd(static.argv[2..]);
+        }
+    else
+        cmd(static.argv[1..]);
+}
 
-        // fascd init
-    } else if (std.mem.eql(u8, static.argv[1], "init")) {
+fn cmd(args: [][:0]u8) !void {
+    std.posix.nanosleep(1, 0);
+    // fascd init
+    if (std.mem.eql(u8, args[0], "init")) {
         _ = try std.io.getStdOut().writer().print(@embedFile("res/init.sh"), .{
             .name = static.name(),
             .exe = try static.exe(),
         });
 
         // fascd cd <query>
-    } else if (std.mem.eql(u8, static.argv[1], "cd")) {
-        if (static.argv.len < 3) {
+    } else if (std.mem.eql(u8, args[0], "cd")) {
+        if (args.len < 2) {
             return;
         }
 
-        if (static.argv.len == 3) {
-            const arg = static.argv[2];
+        if (args.len == 2) {
+            const arg = args[1];
             if (arg.len > 0 and arg[0] == '-') {
                 for (arg[1..]) |c| {
                     if (!std.ascii.isDigit(c)) {
@@ -47,7 +63,7 @@ pub fn main() !void {
             }
         }
 
-        const joined = try std.mem.join(static.alloc, " ", static.argv[2..]);
+        const joined = try std.mem.join(static.alloc, " ", args[1..]);
         defer static.alloc.free(joined);
 
         const rel = std.fs.cwd().realpathAlloc(static.alloc, joined) catch null;
@@ -57,7 +73,7 @@ pub fn main() !void {
             const db = try database.Db.init(static.alloc, DB_PATH);
             defer db.deinit();
 
-            var search: [][]u8 = static.argv[2..];
+            var search: [][]u8 = args[1..];
             const free: ?[]u8 = if (search.len > 0)
                 if (std.mem.eql(u8, search[0], "."))
                     std.fs.cwd().realpathAlloc(static.alloc, ".") catch null
@@ -74,10 +90,10 @@ pub fn main() !void {
         _ = try std.io.getStdOut().writer().writeAll(name);
 
         // fascd query <query>
-    } else if (std.mem.eql(u8, static.argv[1], "query")) {
+    } else if (std.mem.eql(u8, args[0], "query")) {
         const db = try database.Db.init(static.alloc, DB_PATH);
         defer db.deinit();
-        const entry = db.query(static.argv[2..], static.now());
+        const entry = db.query(args[1..], static.now());
         if (entry) |e| {
             _ = try std.io.getStdOut().writer().writeAll(e.name);
         } else {
@@ -88,12 +104,12 @@ pub fn main() !void {
         }
 
         // fascd visit <path>
-    } else if (std.mem.eql(u8, static.argv[1], "visit")) {
+    } else if (std.mem.eql(u8, args[0], "visit")) {
         // TODO: handle spaces
         // TODO: async
         const name = try std.fs.cwd().realpathAlloc(
             static.alloc,
-            if (static.argv.len == 2) "." else static.argv[2],
+            if (args.len == 1) "." else args[1],
         );
         defer static.alloc.free(name);
 

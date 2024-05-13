@@ -1,7 +1,11 @@
-Usage: {[cmd]s} <COMMAND>
+Usage: {[cmd]s} [&] <COMMAND>
 
 Commands:
   cd _      Resolve directory to change to
   init      Print POSIX shell configuration
   query _   Search for a directory
   visit _   Increment a directory
+
+If [&] is provided, the command is executed in the background. This is useless
+for commands that do not have side effects. An error is emitted (to stderr) if
+the command attempts to produce output (to stdout).
