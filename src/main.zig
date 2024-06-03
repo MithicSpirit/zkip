@@ -29,7 +29,6 @@ pub fn main() !void {
 }
 
 fn cmd(args: [][:0]u8) !void {
-    std.posix.nanosleep(1, 0);
     // zkip init
     if (std.mem.eql(u8, args[0], "init")) {
         _ = try std.io.getStdOut().writer().print(@embedFile("res/init.sh"), .{
