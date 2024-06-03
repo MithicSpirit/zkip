@@ -56,31 +56,33 @@ fn cmd(args: [][:0]u8) !void {
         const joined = try std.mem.join(static.alloc, " ", args[1..]);
         defer static.alloc.free(joined);
 
-        const rel = std.fs.cwd().realpathAlloc(static.alloc, joined) catch null;
-        defer if (rel) |r| static.alloc.free(r);
+        if (std.fs.cwd().realpathAlloc(static.alloc, joined) catch null) |rel| {
+            _ = try std.io.getStdOut().writer().writeAll(rel);
+            static.alloc.free(rel);
+            return;
+        }
 
-        const name = rel orelse name: {
-            const dbpath = try static.dbpath();
-            defer static.dbpath_free();
+        const dbpath = try static.dbpath();
+        defer static.dbpath_free();
 
-            const db = try database.Db.init(static.alloc, dbpath);
-            defer db.deinit();
+        const db = try database.Db.init(static.alloc, dbpath);
+        defer db.deinit();
 
-            var search: [][]u8 = args[1..];
-            const free: ?[]u8 = if (search.len > 0)
-                if (std.mem.eql(u8, search[0], "."))
-                    std.fs.cwd().realpathAlloc(static.alloc, ".") catch null
-                else
-                    null
+        var search: [][]u8 = args[1..];
+        const free: ?[]u8 = if (search.len > 0)
+            if (std.mem.eql(u8, search[0], "."))
+                std.fs.cwd().realpathAlloc(static.alloc, ".") catch null
             else
-                null;
-            defer if (free) |f| static.alloc.free(f);
-            if (free) |f| search[0] = f;
+                null
+        else
+            null;
+        defer if (free) |f| static.alloc.free(f);
+        if (free) |f| search[0] = f;
 
-            const entry = db.query(search, static.now());
-            break :name if (entry) |e| e.name else joined;
-        };
-        _ = try std.io.getStdOut().writer().writeAll(name);
+        const entry = db.query(search, static.now());
+        _ = try std.io.getStdOut().writer().writeAll(
+            if (entry) |e| e.name else joined
+        );
 
         // zkip query <query>
     } else if (std.mem.eql(u8, args[0], "query")) {
