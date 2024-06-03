@@ -103,12 +103,13 @@ fn cmd(args: [][:0]u8) !void {
 
         // zkip visit <path>
     } else if (std.mem.eql(u8, args[0], "visit")) {
-        // TODO: handle spaces
-        // TODO: async
-        const name = try std.fs.cwd().realpathAlloc(
-            static.alloc,
-            if (args.len == 1) "." else args[1],
-        );
+        const name = try if (args.len == 1)
+            std.fs.cwd().realpathAlloc(static.alloc, ".")
+        else blk: {
+            const path = try std.mem.join(static.alloc, " ", args[1..]);
+            defer static.alloc.free(path);
+            break :blk std.fs.cwd().realpathAlloc(static.alloc, path);
+        };
         defer static.alloc.free(name);
 
         const dbpath_tmp = try static.dbpath_tmp();
