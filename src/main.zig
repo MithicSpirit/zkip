@@ -2,11 +2,8 @@ const builtin = @import("builtin");
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
+const static = @import("static.zig");
 const database = @import("database.zig");
-
-// TODO: don't hardcode paths
-const DB_PATH = "/tmp/zkip.db";
-const DB_PATH_W = "/tmp/zkip.db.tmp";
 
 pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -63,7 +60,10 @@ fn cmd(args: [][:0]u8) !void {
         defer if (rel) |r| static.alloc.free(r);
 
         const name = rel orelse name: {
-            const db = try database.Db.init(static.alloc, DB_PATH);
+            const dbpath = try static.dbpath();
+            defer static.dbpath_free();
+
+            const db = try database.Db.init(static.alloc, dbpath);
             defer db.deinit();
 
             var search: [][]u8 = args[1..];
@@ -84,7 +84,10 @@ fn cmd(args: [][:0]u8) !void {
 
         // zkip query <query>
     } else if (std.mem.eql(u8, args[0], "query")) {
-        const db = try database.Db.init(static.alloc, DB_PATH);
+        const dbpath = try static.dbpath();
+        defer static.dbpath_free();
+
+        const db = try database.Db.init(static.alloc, dbpath);
         defer db.deinit();
         const entry = db.query(args[1..], static.now());
         if (entry) |e| {
@@ -106,7 +109,11 @@ fn cmd(args: [][:0]u8) !void {
         );
         defer static.alloc.free(name);
 
-        var db = try database.DbW.init(static.alloc, DB_PATH, DB_PATH_W);
+        const dbpath_tmp = try static.dbpath_tmp();
+        const dbpath = try static.dbpath();
+        defer static.dbpath_free();
+
+        var db = try database.DbW.init(static.alloc, dbpath, dbpath_tmp);
         defer db.deinit();
         try db.visit(name, static.now());
         try db.write();
@@ -120,7 +127,7 @@ fn cmd(args: [][:0]u8) !void {
 fn forkcmd(args: [][:0]u8) !void {
     // TODO: investigate cross-platform solutions
     if (try std.posix.fork() > 0) {
-        std.posix.exit(0);
+        std.process.exit(0);
     } else {
         std.io.getStdOut().close();
         return cmd(args);
@@ -133,61 +140,3 @@ fn help() !void {
         .{ .cmd = static.cmd() },
     );
 }
-
-const static = struct {
-    pub var alloc: Allocator = undefined;
-    pub var argv: [][:0]u8 = undefined;
-    var name_: ?[]const u8 = null;
-    var exe_: ?[]const u8 = null;
-    var now_: ?i64 = null;
-    var here_: ?std.fs.Dir = null;
-
-    pub fn name() []const u8 {
-        if (name_) |n| {
-            return n;
-        }
-
-        if (argv.len > 0) blk: {
-            const e = exe() catch break :blk;
-            const n = std.fs.path.basename(e);
-            name_ = n;
-            return n;
-        }
-
-        return "zskip";
-    }
-
-    pub fn cmd() []const u8 {
-        if (argv.len == 0) {
-            return "zskip";
-        }
-        return argv[0];
-    }
-
-    pub fn exe() ![]const u8 {
-        if (exe_) |e| {
-            return e;
-        }
-
-        const e = try std.fs.selfExePathAlloc(alloc);
-        exe_ = e;
-        return e;
-    }
-
-    pub fn exeFree() void {
-        if (exe_) |e| {
-            exe_ = null;
-            return alloc.free(e);
-        }
-    }
-
-    pub fn now() i64 {
-        if (now_) |n| {
-            return n;
-        }
-
-        const n = std.time.milliTimestamp();
-        now_ = n;
-        return n;
-    }
-};
