@@ -5,8 +5,8 @@ const Allocator = std.mem.Allocator;
 const database = @import("database.zig");
 
 // TODO: don't hardcode paths
-const DB_PATH = "/tmp/fascd.db";
-const DB_PATH_W = "/tmp/fascd.db.tmp";
+const DB_PATH = "/tmp/zkip.db";
+const DB_PATH_W = "/tmp/zkip.db.tmp";
 
 pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -22,21 +22,22 @@ pub fn main() !void {
     else if (std.mem.eql(u8, static.argv[1], "&"))
         if (static.argv.len < 3)
             help()
-        else forkcmd(static.argv[2..])
+        else
+            forkcmd(static.argv[2..])
     else
         cmd(static.argv[1..]);
 }
 
 fn cmd(args: [][:0]u8) !void {
     std.posix.nanosleep(1, 0);
-    // fascd init
+    // zkip init
     if (std.mem.eql(u8, args[0], "init")) {
         _ = try std.io.getStdOut().writer().print(@embedFile("res/init.sh"), .{
             .name = static.name(),
             .exe = try static.exe(),
         });
 
-        // fascd cd <query>
+        // zkip cd <query>
     } else if (std.mem.eql(u8, args[0], "cd")) {
         if (args.len < 2) {
             return;
@@ -82,7 +83,7 @@ fn cmd(args: [][:0]u8) !void {
         };
         _ = try std.io.getStdOut().writer().writeAll(name);
 
-        // fascd query <query>
+        // zkip query <query>
     } else if (std.mem.eql(u8, args[0], "query")) {
         const db = try database.Db.init(static.alloc, DB_PATH);
         defer db.deinit();
@@ -96,7 +97,7 @@ fn cmd(args: [][:0]u8) !void {
             );
         }
 
-        // fascd visit <path>
+        // zkip visit <path>
     } else if (std.mem.eql(u8, args[0], "visit")) {
         // TODO: handle spaces
         // TODO: async
@@ -120,10 +121,10 @@ fn cmd(args: [][:0]u8) !void {
 fn forkcmd(args: [][:0]u8) !void {
     // TODO: investigate cross-platform solutions
     if (try std.posix.fork() > 0) {
-            std.posix.exit(0);
+        std.posix.exit(0);
     } else {
-            std.io.getStdOut().close();
-            return cmd(args);
+        std.io.getStdOut().close();
+        return cmd(args);
     }
 }
 
@@ -154,12 +155,12 @@ const static = struct {
             return n;
         }
 
-        return "fasdc";
+        return "zskip";
     }
 
     pub fn cmd() []const u8 {
         if (argv.len == 0) {
-            return "fasdc";
+            return "zskip";
         }
         return argv[0];
     }
